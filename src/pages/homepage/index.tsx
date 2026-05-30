@@ -3,6 +3,11 @@ import { Mic, Play, Square, Sparkles, Volume2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
+import { useSpeechStore } from "@/stores/speech-store";
+import { processSpeechChunk } from "@/services/whisper.service";
+import type { SpeechChunk } from "@/types/audio.type";
+
+const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY ?? "";
 
 interface Message {
   role: "interviewer" | "assistant";
@@ -10,17 +15,41 @@ interface Message {
 }
 
 export default function Homepage() {
+  const { isCapturing, setCapturing } = useSpeechStore();
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // test step 1  record voice from output speaker
   useEffect(() => {
-    const unlisten = listen("audio-chunk", (event) => {
-      console.log("Audio data received:", (event.payload as string).length);
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages, transcript]);
+
+  // รับ speech-chunk จาก Rust → transcribe → แสดงผล
+  useEffect(() => {
+    const unlisten = listen<SpeechChunk>("speech-chunk", async (event) => {
+      const chunk = event.payload;
+      if (chunk.duration_ms < 300) return;
+
+      setIsProcessing(true);
+      try {
+        // transcribe และรับ text กลับมา
+        const text = await processSpeechChunk(chunk, GROQ_API_KEY);
+        if (text) {
+          setMessages((prev) => [
+            ...prev,
+            { role: "interviewer", content: text },
+          ]);
+          setTranscript("");
+        }
+      } finally {
+        setIsProcessing(false);
+      }
     });
+
     return () => {
       unlisten.then((f) => f());
     };
@@ -29,67 +58,11 @@ export default function Homepage() {
   const startCapture = async () => {
     try {
       await invoke("start_audio_capture");
-      console.log("capture started");
+      setIsListening(true);
+      setCapturing(true);
     } catch (error) {
-      console.error(" ❌ ", error);
+      console.error("❌", error);
     }
-  };
-  //---------------------  -*- --------------------------
-
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages, transcript]);
-
-  // --- Mock Simulation Logic ---
-  useEffect(() => {
-    let timer1: NodeJS.Timeout;
-    let timer2: NodeJS.Timeout;
-
-    if (isListening && messages.length === 0) {
-      // 1. จำลองว่ากำลังฟังและได้ยินคำถาม (หลังจาก 1.5 วินาที)
-      timer1 = setTimeout(() => {
-        setTranscript("ถ้า Query SQL ช้ามาก คุณจะมีวิธีการ Optimize อย่างไร?");
-      }, 1500);
-
-      // 2. จำลองการส่งไป Groq และได้คำตอบ (หลังจาก 3.5 วินาที)
-      timer2 = setTimeout(() => {
-        const mockQuestion =
-          "ถ้า Query SQL ช้ามาก คุณจะมีวิธีการ Optimize อย่างไร?";
-        const mockAIAnswer = `คำตอบของคุณเน้นไปที่ Denormalization (Precompute) ซึ่งดีมากในงานจริง แต่สำหรับการสัมภาษณ์ ควรตอบเป็นลำดับขั้น (Optimization Hierarchy) ดังนี้ครับ:
-        
-1. ดู Execution Plan: เพื่อหาจุดคอขวด
-2. เพิ่ม Index: ในจุดที่เหมาะสม
-3. ลด Select *: เลือกเฉพาะคอลัมน์ที่จำเป็น
-4. Optimize Join: ตรวจสอบเงื่อนไขการเชื่อมตาราง
-5. Advanced: ใช้ Denormalization หรือ Materialized View (แบบที่คุณคิด)
-6. Caching: ใช้ Redis เข้ามาช่วย
-
-*Tip: การตอบแบบนี้จะโชว์ว่าคุณรู้ทั้งพื้นฐาน และรู้วิธีแก้ระดับ System Design ครับ*`;
-
-        setMessages([
-          { role: "interviewer", content: mockQuestion },
-          { role: "assistant", content: mockAIAnswer },
-        ]);
-        setTranscript("");
-        setIsProcessing(false);
-      }, 4500);
-
-      setIsProcessing(true);
-    } else if (!isListening) {
-      setTranscript("");
-      setIsProcessing(false);
-    }
-
-    return () => {
-      clearTimeout(timer1);
-      clearTimeout(timer2);
-    };
-  }, [isListening]);
-
-  const handleManualProcess = () => {
-    // ฟังก์ชันจริงสำหรับการกด Enter เพื่อประมวลผล
   };
 
   return (
@@ -111,28 +84,13 @@ export default function Homepage() {
             </div>
           </div>
 
-          {/* <button
-            onClick={() => {
-              setIsListening(!isListening);
-              if (!isListening) setMessages([]); // Clear messages when restart
-            }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-all ${
-              isListening
-                ? "bg-red-500 hover:bg-red-600 text-white"
-                : "bg-indigo-600 hover:bg-indigo-700 text-white"
-            }`}
-          >
-            {isListening ? <Square size={18} /> : <Play size={18} />}
-            {isListening ? "Stop" : "Start"}
-          </button> */}
-
-          {/* test receive audio capture button */}
           <div className="p-6">
             <button
               onClick={startCapture}
-              className="px-4 py-2 bg-blue-500 text-white rounded"
+              disabled={isListening}
+              className={`${isListening ? "bg-red-500" : "bg-blue-500"} px-4 py-2 text-white rounded disabled:opacity-70`}
             >
-              Start Audio Capture
+              {isListening ? "🔴 Recording..." : "Start Audio Capture"}
             </button>
           </div>
         </header>
@@ -178,20 +136,20 @@ export default function Homepage() {
 
           {/* Real-time Transcription Visualizer */}
           <AnimatePresence>
-            {isListening && !messages.length && (
+            {isListening && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                className="absolute bottom-10 left-0 right-0 flex justify-center px-8 z-20"
+                className="  sticky -bottom-40 left-0 right-0 flex justify-center px-8 z-20"
               >
-                <div className="bg-white/90 dark:bg-zinc-900/90 backdrop-blur-xl p-6 rounded-[2rem] border border-zinc-200 dark:border-zinc-800 shadow-2xl w-full max-w-2xl">
+                <div className="  bg-white/90 dark:bg-zinc-900/90 backdrop-blur-xl p-6 rounded-[2rem] border border-zinc-200 dark:border-zinc-800 shadow-2xl w-full max-w-2xl">
                   <div className="flex items-center gap-4 mb-3">
                     <div className="flex gap-1 h-3 items-center">
                       {[...Array(5)].map((_, i) => (
                         <motion.div
                           key={i}
-                          animate={{ height: [4, 12, 4] }}
+                          animate={{ height: isProcessing ? [4, 12, 4] : 4 }}
                           transition={{
                             repeat: Infinity,
                             duration: 0.6,
@@ -202,7 +160,7 @@ export default function Homepage() {
                       ))}
                     </div>
                     <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">
-                      AI Listening...
+                      {isProcessing ? "Processing..." : "AI Listening..."}
                     </span>
                   </div>
 
@@ -218,13 +176,15 @@ export default function Homepage() {
         <footer className="h-12 border-t flex items-center px-8 text-[10px] text-zinc-500 justify-between bg-zinc-50 dark:bg-zinc-950 shrink-0">
           <div className="flex gap-4">
             <span className="flex items-center gap-1">
-              <Sparkles size={10} /> Groq Llama-3-70b
+              <Sparkles size={10} /> Groq Whisper large-v3
             </span>
             <span className="flex items-center gap-1">
-              <Mic size={10} /> Apple SFSpeech (Thai)
+              <Mic size={10} /> System Audio (Thai)
             </span>
           </div>
-          <div className="font-mono">SIMULATION MODE: ACTIVE</div>
+          <div className="font-mono">
+            {isCapturing ? "LIVE MODE: ACTIVE" : "READY"}
+          </div>
         </footer>
       </main>
     </div>

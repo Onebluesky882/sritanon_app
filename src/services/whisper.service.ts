@@ -1,16 +1,29 @@
-import { useSpeechStore } from "@/stores/speech-store";
+import type { SpeechChunk } from "@/types/audio.type"
+import { pcmBase64ToWavBlob } from "./audio.service"
+import { transcribeWav } from "./groq.service"
+import { useSpeechStore } from "@/stores/speech-store"
 
-export async function transcribeSpeech(audio: Float32Array) {
-  const setTranscript = useSpeechStore.getState().setTranscript;
+export async function processSpeechChunk(
+  chunk: SpeechChunk,
+  apiKey: string
+): Promise<string | null> {
+  if (chunk.duration_ms < 300) return null
 
-  console.log("transcribing audio", audio.length);
+  try {
+    const wav = pcmBase64ToWavBlob(chunk.pcm_base64)
+    const text = await transcribeWav(wav, apiKey)
+    if (!text) return null
 
-  // TEMP mock
+    useSpeechStore.getState().addTranscript({
+      id: crypto.randomUUID(),
+      text,
+      duration_ms: chunk.duration_ms,
+      timestamp: new Date(),
+    })
 
-  const fakeText = "Realtime speech detected";
-
-  // Update store with transcript
-  setTranscript(fakeText);
-
-  return fakeText;
+    return text
+  } catch (err) {
+    console.error("whisper error:", err)
+    return null
+  }
 }
