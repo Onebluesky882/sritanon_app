@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { Mic, Play, Square, Sparkles, Volume2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { listen } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
 
 interface Message {
   role: "interviewer" | "assistant";
@@ -14,8 +16,24 @@ export default function Homepage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // test step 1 speech to text
+  // test step 1  record voice from output speaker
+  useEffect(() => {
+    const unlisten = listen("audio-chunk", (event) => {
+      console.log("Audio data received:", (event.payload as string).length);
+    });
+    return () => {
+      unlisten.then((f) => f());
+    };
+  }, []);
 
+  const startCapture = async () => {
+    try {
+      await invoke("start_audio_capture");
+      console.log("capture started");
+    } catch (error) {
+      console.error(" ❌ ", error);
+    }
+  };
   //---------------------  -*- --------------------------
 
   useEffect(() => {
@@ -93,7 +111,7 @@ export default function Homepage() {
             </div>
           </div>
 
-          <button
+          {/* <button
             onClick={() => {
               setIsListening(!isListening);
               if (!isListening) setMessages([]); // Clear messages when restart
@@ -106,7 +124,17 @@ export default function Homepage() {
           >
             {isListening ? <Square size={18} /> : <Play size={18} />}
             {isListening ? "Stop" : "Start"}
-          </button>
+          </button> */}
+
+          {/* test receive audio capture button */}
+          <div className="p-6">
+            <button
+              onClick={startCapture}
+              className="px-4 py-2 bg-blue-500 text-white rounded"
+            >
+              Start Audio Capture
+            </button>
+          </div>
         </header>
 
         <div
