@@ -1,5 +1,5 @@
 allowBuilds:
-  bun: set this to true or false
+  bun: true
   esbuild: true
   sharp: false
   workerd: false
