@@ -8,6 +8,20 @@
       "when": 1780312500141,
       "tag": "0000_setup_first",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1780392595517,
+      "tag": "0001_add_post",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1780398071201,
+      "tag": "0002_confused_stature",
+      "breakpoints": true
     }
   ]
 }

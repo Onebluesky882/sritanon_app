@@ -18,7 +18,7 @@
 
     {
 
-      "binding": "DB",
+      "binding": "DATABASE",
 
       "database_name": "database",
 
