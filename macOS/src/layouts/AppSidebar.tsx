@@ -11,13 +11,10 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-
+import { Route, useNavigate } from "react-router-dom";
 // Mock Data สำหรับเมนู
 const mainMenus = [
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, active: true },
-  { id: "interview", label: "Mock Interview", icon: MessageSquare, active: false },
-  { id: "resume", label: "Resume Analysis", icon: FileText, active: false },
-  { id: "history", label: "Past Sessions", icon: History, active: false },
+  { id: "board", label: "Board", icon: LayoutDashboard, active: true },
 ];
 
 const recentInterviews = [
@@ -28,12 +25,12 @@ const recentInterviews = [
 
 export const AppSidebar = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const naviate = useNavigate();
 
   return (
     <aside
-      className={`h-screen border-r bg-zinc-50/50 dark:bg-zinc-950 flex flex-col font-sans transition-all duration-300 ${
-        isCollapsed ? "w-[80px]" : "w-[20%] min-w-[240px]"
-      }`}
+      className={`h-screen border-r bg-zinc-50/50 dark:bg-zinc-950 flex flex-col font-sans transition-all duration-300 ${isCollapsed ? "w-[80px]" : "w-[20%] min-w-[240px]"
+        }`}
     >
       {/* HEADER */}
       <div className="p-4 flex items-center justify-between">
@@ -63,14 +60,14 @@ export const AppSidebar = () => {
 
       {/* NEW SESSION */}
       <div className="px-3 mb-6">
-        <button className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 px-4 rounded-xl transition-all duration-200 shadow-sm">
+        <button className="w-full flex items-start justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 px-4 rounded-xl transition-all duration-200 shadow-sm">
           <PlusCircle size={18} />
-          {!isCollapsed && <span className="text-sm font-medium">New Interview</span>}
+          {!isCollapsed && <span  onClick={()=> naviate('/')} className="text-sm font-medium">New Interview</span>}
         </button>
       </div>
 
       {/* MENU */}
-      <nav className="flex-1 px-2 space-y-1">
+      <nav className="flex-1 px-2 space-y-1 ">
         {!isCollapsed && (
           <p className="px-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-2">
             Menu
@@ -78,13 +75,15 @@ export const AppSidebar = () => {
         )}
 
         {mainMenus.map((item) => (
-          <button
+          <button onClick={() => naviate(item.label)}
             key={item.id}
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group justify-center ${
-              item.active
+            className={`w-full flex gap-3 px-3 py-2 rounded-lg transition-colors group justify-start ${item.active
+
                 ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600"
+
                 : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-900"
-            }`}
+
+              }`}
           >
             <item.icon size={20} />
 
