@@ -12,7 +12,6 @@ export async function create(db: DrizzleD1Database, data: CreatePost ) {
     title : data.title,
     content : data.content,
   user  : data.user,
-
   }).returning();
 
   return result;

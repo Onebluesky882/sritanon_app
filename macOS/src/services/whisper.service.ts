@@ -14,16 +14,19 @@ export async function processSpeechChunk(
     const text = await transcribeWav(wav, apiKey)
     if (!text) return null
 
-    useSpeechStore.getState().addTranscript({
+    const transcript = {
       id: crypto.randomUUID(),
       text,
       duration_ms: chunk.duration_ms,
       timestamp: new Date(),
-    })
+    }
+
+    useSpeechStore.getState().addTranscript(transcript)
+
 
     return text
   } catch (err) {
-    console.error("whisper error:", err)
+    console.error("whisper error: ", err)
     return null
   }
 }
