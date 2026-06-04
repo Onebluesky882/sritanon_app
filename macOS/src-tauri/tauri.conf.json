@@ -10,11 +10,13 @@
     "frontendDist": "../dist"
   },
   "app": {
+    "macOSPrivateApi": true,
     "windows": [
       {
         "title": "sritanon_app",
         "width": 800,
-        "height": 600
+        "height": 600,
+        "transparent": true
       }
     ],
     "security": {
@@ -31,8 +33,6 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "externalBin": [
-      "swift-audio"
-    ]
+    "externalBin": ["swift-audio"]
   }
 }

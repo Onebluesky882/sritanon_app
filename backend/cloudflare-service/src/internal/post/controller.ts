@@ -22,8 +22,6 @@ export async function create( c: Context<{ Bindings: Bindings }>) {
 
 const body = await c.req.json<CreatePost>();
  const db = createDB(c.env.DATABASE);
-
-
    try {
 
     const result = await service.create(db, body);
@@ -32,14 +30,8 @@ const body = await c.req.json<CreatePost>();
     return c.json({ success: true, data: result }, 201);
 
   } catch (err) {
-
-
     return c.json({ error: String(err) }, 500);
-
   }
- 
- 
-
 }
 
 
