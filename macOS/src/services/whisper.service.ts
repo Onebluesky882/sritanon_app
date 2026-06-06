@@ -6,9 +6,6 @@ import { useSpeechStore } from "@/stores/speech-store"
 let activeRequests = 0
 const MAX_PARALLEL = 2
 
-// track partial transcripts — เมื่อ final มา จะ replace
-const partialTracker = new Map<string, string>()
-
 export async function processSpeechChunk(
   chunk: SpeechChunk,
   apiKey: string
@@ -24,8 +21,9 @@ export async function processSpeechChunk(
   const start = Date.now()
 
   try {
+    const { language } = useSpeechStore.getState()
     const wav = pcmBase64ToWavBlob(chunk.pcm_base64)
-    const text = await transcribeWav(wav, apiKey)
+    const text = await transcribeWav(wav, apiKey, language)
     const elapsed = Date.now() - start
 
     console.log(`${chunk.is_partial ? '📡 Partial' : '✅ Final'} ${chunk.duration_ms}ms → ${elapsed}ms: "${text?.slice(0, 50)}"`)
@@ -33,7 +31,6 @@ export async function processSpeechChunk(
     if (!text) return null
 
     if (!chunk.is_partial) {
-      // final → save transcript ปกติ
       useSpeechStore.getState().addTranscript({
         id: crypto.randomUUID(),
         text,

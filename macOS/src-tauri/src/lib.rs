@@ -2,7 +2,8 @@ mod vad;
 
 use std::process::{Command, Stdio};
 use std::io::{BufRead, BufReader, Read};
-use tauri::{AppHandle, Emitter};
+use std::sync::Mutex;
+use tauri::{AppHandle, Emitter, Manager, State};
 use serde::Serialize;
 
 #[derive(Serialize, Clone)]
@@ -16,6 +17,20 @@ struct SpeechChunk {
 struct AppEvent {
     kind: String,
     message: String,
+}
+
+struct AudioState {
+    child_pid: Mutex<Option<u32>>,
+}
+
+impl AudioState {
+    fn kill(&self) {
+        let pid = self.child_pid.lock().unwrap().take();
+        if let Some(pid) = pid {
+            Command::new("kill").args(["-TERM", &pid.to_string()]).spawn().ok();
+            eprintln!("🛑 Killed PID: {}", pid);
+        }
+    }
 }
 
 #[tauri::command]
@@ -49,20 +64,12 @@ async fn check_permission() -> bool {
 
     let stderr = child.stderr.take().unwrap();
     let reader = BufReader::new(stderr);
-
     let mut result = false;
 
     for line in reader.lines() {
         if let Ok(line) = line {
-            eprintln!("🔍 check: {}", line);
-            if line.contains("Audio capture started") {
-                result = true;
-                break;
-            }
-            if line.contains("PERMISSION_DENIED") || line.contains("denied") {
-                result = false;
-                break;
-            }
+            if line.contains("Audio capture started") { result = true; break; }
+            if line.contains("PERMISSION_DENIED") || line.contains("denied") { break; }
         }
     }
 
@@ -74,14 +81,20 @@ async fn check_permission() -> bool {
 async fn open_privacy_settings() {
     Command::new("open")
         .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
-        .spawn()
-        .ok();
+        .spawn().ok();
 }
 
 #[tauri::command]
-async fn start_audio_capture(app: AppHandle) -> Result<String, String> {
-    let cwd = std::env::current_dir().unwrap();
+async fn stop_audio_capture(state: State<'_, AudioState>) -> Result<(), String> {
+    state.kill();
+    Ok(())
+}
 
+#[tauri::command]
+async fn start_audio_capture(app: AppHandle, state: State<'_, AudioState>) -> Result<String, String> {
+    state.kill();
+
+    let cwd = std::env::current_dir().unwrap();
     let swift_project = vec![
         cwd.join("../swift-audio"),
         cwd.parent().unwrap().join("swift-audio"),
@@ -99,6 +112,9 @@ async fn start_audio_capture(app: AppHandle) -> Result<String, String> {
     } else {
         return Err("swift-audio project not found".to_string());
     };
+
+    *state.child_pid.lock().unwrap() = Some(child.id());
+    eprintln!("✅ Swift PID: {}", child.id());
 
     let mut stdout = child.stdout.take().unwrap();
     let stderr_pipe = child.stderr.take().unwrap();
@@ -118,11 +134,6 @@ async fn start_audio_capture(app: AppHandle) -> Result<String, String> {
                     let _ = app_clone.emit("app-event", AppEvent {
                         kind: "capture_started".to_string(),
                         message: "Audio capture started".to_string(),
-                    });
-                } else if line.contains("Reconnecting") {
-                    let _ = app_clone.emit("app-event", AppEvent {
-                        kind: "reconnecting".to_string(),
-                        message: "Reconnecting...".to_string(),
                     });
                 }
             }
@@ -198,13 +209,24 @@ fn base64_encode(data: &[u8]) -> String {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(AudioState { child_pid: Mutex::new(None) })
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             greet,
             start_audio_capture,
+            stop_audio_capture,
             check_permission,
             open_privacy_settings,
         ])
+        // ← kill Swift เมื่อ window ปิด
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::Destroyed = event {
+                if let Some(state) = window.try_state::<AudioState>() {
+                    state.kill();
+                    eprintln!("🛑 App closed — Swift process killed");
+                }
+            }
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

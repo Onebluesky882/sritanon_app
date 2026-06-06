@@ -36,3 +36,6 @@ export type DetectedQuestion = {
   transcriptIds: string[];
 
 };
+
+export type Mode = "manual" | "auto";
+export type Language = "th" | "en" | "zh" | "ja";

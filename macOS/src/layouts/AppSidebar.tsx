@@ -1,17 +1,14 @@
 import { useState } from "react";
 import {
   LayoutDashboard,
-  MessageSquare,
-  FileText,
   Settings,
-  History,
   PlusCircle,
   BrainCircuit,
   UserCircle,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import { Route, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 // Mock Data สำหรับเมนู
 const mainMenus = [
   { id: "board", label: "Board", icon: LayoutDashboard, active: true },
@@ -29,7 +26,7 @@ export const AppSidebar = () => {
 
   return (
     <aside
-      className={`h-screen border-r bg-zinc-50/50 dark:bg-zinc-950 flex flex-col font-sans transition-all duration-300 ${isCollapsed ? "w-[80px]" : "w-[20%] min-w-[240px]"
+      className={`h-screen border-r bg-zinc-50/50 dark:bg-zinc-950 flex flex-col font-sans transition-all duration-300 ${isCollapsed ? "w-[80px]" : "w-[14%] min-w-[240px]"
         }`}
     >
       {/* HEADER */}
@@ -48,7 +45,7 @@ export const AppSidebar = () => {
 
         <button
           onClick={() => setIsCollapsed((v) => !v)}
-          className="p-2 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 transition"
+          className="p-2 rounded-lg justify-center hover:bg-zinc-200 dark:hover:bg-zinc-800 transition"
         >
           {isCollapsed ? (
             <ChevronRight size={18} />
@@ -62,7 +59,7 @@ export const AppSidebar = () => {
       <div className="px-3 mb-6">
         <button className="w-full flex items-start justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 px-4 rounded-xl transition-all duration-200 shadow-sm">
           <PlusCircle size={18} />
-          {!isCollapsed && <span  onClick={()=> naviate('/')} className="text-sm font-medium">New Interview</span>}
+          {!isCollapsed && <span onClick={() => naviate('/')} className="text-sm font-medium">New Interview</span>}
         </button>
       </div>
 
@@ -77,11 +74,11 @@ export const AppSidebar = () => {
         {mainMenus.map((item) => (
           <button onClick={() => naviate(item.label)}
             key={item.id}
-            className={`w-full flex gap-3 px-3 py-2 rounded-lg transition-colors group justify-start ${item.active
+            className={`w-full justify-center flex gap-3 px-3 py-2 rounded-lg transition-colors group  ${item.active
 
-                ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600"
+              ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600"
 
-                : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+              : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-900"
 
               }`}
           >
@@ -116,7 +113,7 @@ export const AppSidebar = () => {
 
       {/* FOOTER */}
       <div className="p-3 border-t border-zinc-200 dark:border-zinc-800 space-y-2">
-        <button className="w-full flex items-center gap-3 px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-lg">
+        <button className="w-full justify-center flex items-center gap-3 px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-lg">
           <Settings size={20} />
           {!isCollapsed && <span className="text-sm">Settings</span>}
         </button>
