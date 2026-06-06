@@ -6,29 +6,56 @@ import AVFoundation
 class AudioCapture: NSObject, SCStreamDelegate, SCStreamOutput {
     var stream: SCStream?
 
-    func start() {
+    func checkPermissionAndStart() {
         SCShareableContent.getExcludingDesktopWindows(false, onScreenWindowsOnly: false) { content, error in
+            if let error = error {
+                let msg = error.localizedDescription.lowercased()
+
+                if msg.contains("denied") || msg.contains("tcc") || msg.contains("permission") {
+                    // ส่ง signal พิเศษออก stdout เพื่อบอก Rust
+                    fputs("PERMISSION_DENIED\n", stderr)
+                    // เปิด System Settings ให้เลย
+                    DispatchQueue.main.async {
+                        NSWorkspace.shared.open(
+                            URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!
+                        )
+                    }
+                    // รอ 30 วิแล้วลองใหม่
+                    fputs("⏳ Waiting 30s for permission...\n", stderr)
+                    Thread.sleep(forTimeInterval: 30)
+                    self.checkPermissionAndStart()
+                    return
+                }
+
+                fputs("❌ Error: \(error.localizedDescription)\n", stderr)
+                exit(1)
+            }
+
             guard let display = content?.displays.first else {
                 fputs("❌ No display found\n", stderr)
                 exit(1)
             }
 
-            let filter = SCContentFilter(display: display, excludingWindows: [])
-            let config = SCStreamConfiguration()
-            config.capturesAudio = true
-            config.sampleRate = 16000
-            config.channelCount = 1
+            self.startCapture(display: display)
+        }
+    }
 
-            self.stream = SCStream(filter: filter, configuration: config, delegate: self)
+    func startCapture(display: SCDisplay) {
+        let filter = SCContentFilter(display: display, excludingWindows: [])
+        let config = SCStreamConfiguration()
+        config.capturesAudio = true
+        config.sampleRate = 16000
+        config.channelCount = 1
 
-            do {
-                try self.stream?.addStreamOutput(self, type: .audio, sampleHandlerQueue: .global())
-                try self.stream?.startCapture()
-                fputs("✅ Audio capture started\n", stderr)
-            } catch {
-                fputs("❌ Start error: \(error)\n", stderr)
-                exit(1)
-            }
+        stream = SCStream(filter: filter, configuration: config, delegate: self)
+
+        do {
+            try stream?.addStreamOutput(self, type: .audio, sampleHandlerQueue: .global())
+            try stream?.startCapture()
+            fputs("✅ Audio capture started\n", stderr)
+        } catch {
+            fputs("❌ Start error: \(error)\n", stderr)
+            exit(1)
         }
     }
 
@@ -44,11 +71,19 @@ class AudioCapture: NSObject, SCStreamDelegate, SCStreamOutput {
         let data = Data(bytes: ptr, count: length)
         FileHandle.standardOutput.write(data)
     }
+
+    // handle stream error — reconnect อัตโนมัติ
+    func stream(_ stream: SCStream, didStopWithError error: Error) {
+        fputs("⚠️ Stream stopped: \(error.localizedDescription)\n", stderr)
+        fputs("🔄 Reconnecting in 3s...\n", stderr)
+        Thread.sleep(forTimeInterval: 3)
+        checkPermissionAndStart()
+    }
 }
 
 if #available(macOS 13.0, *) {
     let capture = AudioCapture()
-    capture.start()
+    capture.checkPermissionAndStart()
     RunLoop.main.run()
 } else {
     fputs("❌ macOS 13+ required\n", stderr)

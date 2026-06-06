@@ -109,13 +109,24 @@ export default function Homepage() {
     };
   }, []);
 
-  const startCapture = async () => {
-    try {
-      await invoke("start_audio_capture");
-      setIsListening(true);
-      setCapturing(true);
-    } catch (e) {
-      console.error("❌", e);
+  const toggleCapture = async () => {
+    if (!isListening) {
+      try {
+        await invoke("start_audio_capture");
+
+        setIsListening(true);
+        setCapturing(true);
+
+        console.log("🎤 Recording started");
+      } catch (e) {
+        console.error("❌", e);
+      }
+    } else {
+      // แค่เปลี่ยน state UI
+      setIsListening(false);
+      setCapturing(false);
+
+      console.log("🛑 Recording stopped (UI only)");
     }
   };
 
@@ -184,8 +195,7 @@ export default function Homepage() {
               </button>
             )}
             <button
-              onClick={startCapture}
-              disabled={isListening}
+              onClick={toggleCapture}
               className={`px-4 py-2 text-white rounded-xl font-bold text-sm ${isListening ? "bg-red-500" : "bg-blue-500 hover:bg-blue-600"} disabled:opacity-70`}
             >
               {isListening ? "🔴 Recording..." : "Start"}
@@ -205,7 +215,7 @@ export default function Homepage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full">
 
             {/* LEFT COLUMN */}
-            <div className="flex border relative flex-col gap-4 overflow-hidden">
+            <div className="flex   relative flex-col gap-4 overflow-hidden">
 
 
               {/* LIVE TRANSCRIPT */}
@@ -231,8 +241,8 @@ export default function Homepage() {
                       <div
                         key={t.id}
                         className={`rounded-xl p-3 border transition-all cursor-pointer ${selectedTranscriptIds.has(t.id)
-                            ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/30"
-                            : "border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800"
+                          ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/30"
+                          : "border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800"
                           }`}
                       >
                         <div className="flex justify-between mb-1">

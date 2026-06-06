@@ -1,6 +1,7 @@
 export type SpeechChunk = {
   duration_ms: number
   pcm_base64: string
+  is_partial: boolean
 }
 
 export type Transcript = {

@@ -1,14 +1,21 @@
 mod vad;
 
 use std::process::{Command, Stdio};
-use std::io::Read;
-use tauri::{AppHandle, Emitter, Manager};
+use std::io::{BufRead, BufReader, Read};
+use tauri::{AppHandle, Emitter};
 use serde::Serialize;
 
 #[derive(Serialize, Clone)]
 struct SpeechChunk {
     duration_ms: u32,
     pcm_base64: String,
+    is_partial: bool,
+}
+
+#[derive(Serialize, Clone)]
+struct AppEvent {
+    kind: String,
+    message: String,
 }
 
 #[tauri::command]
@@ -17,58 +24,101 @@ fn greet(name: &str) -> String {
 }
 
 #[tauri::command]
-async fn start_audio_capture(app: AppHandle) -> Result<(), String> {
-    let resource_path = app
-        .path()
-        .resource_dir()
-        .map_err(|e| e.to_string())?
-        .join("swift-audio");
+async fn start_audio_capture(app: AppHandle) -> Result<String, String> {
+    let cwd = std::env::current_dir().unwrap();
 
-    let swift_bin = if resource_path.exists() {
-        resource_path
+    // หา swift-audio project directory
+    let swift_project = vec![
+        cwd.join("../swift-audio"),
+        cwd.parent().unwrap().join("swift-audio"),
+    ].into_iter().find(|p| p.join("Package.swift").exists());
+
+    let mut child = if let Some(project) = swift_project {
+        eprintln!("✅ Using swift run at: {:?}", project);
+        Command::new("swift")
+            .args(["run"])
+            .current_dir(&project)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| format!("swift run failed: {}", e))?
     } else {
-        std::env::current_dir()
-            .unwrap()
-            .join("src-tauri/swift-audio")
+        return Err("swift-audio project not found".to_string());
     };
 
-    let mut child = Command::new(&swift_bin)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-        .map_err(|e| format!("Failed to spawn: {} at {:?}", e, swift_bin))?;
-
     let mut stdout = child.stdout.take().unwrap();
+    let stderr_pipe = child.stderr.take().unwrap();
 
+    let app_clone = app.clone();
     tauri::async_runtime::spawn(async move {
-        let mut buf = vec![0u8; 4096];
-        let mut vad = vad::Vad::new();
-
-        loop {
-            match stdout.read(&mut buf) {
-                Ok(0) => break,
-                Ok(n) => {
-                    if let Some(speech_f32) = vad.process(&buf[..n]) {
-                        let duration_ms = (speech_f32.len() as f32 / 16000.0 * 1000.0) as u32;
-
-                        // f32 → bytes → base64
-                        let bytes: Vec<u8> = speech_f32
-                            .iter()
-                            .flat_map(|f| f.to_le_bytes())
-                            .collect();
-                        let pcm_base64 = base64_encode(&bytes);
-
-                        let chunk = SpeechChunk { duration_ms, pcm_base64 };
-                        eprintln!("🎤 Speech: {}ms", duration_ms);
-                        let _ = app.emit("speech-chunk", chunk);
-                    }
+        let reader = BufReader::new(stderr_pipe);
+        for line in reader.lines() {
+            if let Ok(line) = line {
+                eprintln!("🎤 Swift: {}", line);
+                if line.contains("PERMISSION_DENIED") {
+                    let _ = app_clone.emit("app-event", AppEvent {
+                        kind: "permission_denied".to_string(),
+                        message: "Screen Recording permission denied".to_string(),
+                    });
+                } else if line.contains("Audio capture started") {
+                    let _ = app_clone.emit("app-event", AppEvent {
+                        kind: "capture_started".to_string(),
+                        message: "Audio capture started".to_string(),
+                    });
                 }
-                Err(_) => break,
             }
         }
     });
 
-    Ok(())
+    tauri::async_runtime::spawn(async move {
+        let mut buf = vec![0u8; 4096];
+        let mut vad = vad::Vad::new();
+        let mut count = 0u32;
+        let mut log_counter = 0u32;
+
+        loop {
+            match stdout.read(&mut buf) {
+                Ok(0) => { eprintln!("⚠️ stdout closed"); break; }
+                Ok(n) => {
+                    log_counter += 1;
+                    if log_counter % 50 == 0 {
+                        let samples: Vec<f32> = buf[..n].chunks_exact(4)
+                            .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+                            .collect();
+                        let rms = vad::compute_rms(&samples);
+                        eprintln!("📊 RMS={:.4} speaking={}", rms, vad.is_speaking);
+                    }
+
+                    let (final_chunk, partial_chunk) = vad.process_with_partial(&buf[..n]);
+
+                    if let Some(p) = partial_chunk {
+                        let ms = (p.len() as f32 / 16000.0 * 1000.0) as u32;
+                        let bytes: Vec<u8> = p.iter().flat_map(|f| f.to_le_bytes()).collect();
+                        let _ = app.emit("speech-chunk", SpeechChunk {
+                            duration_ms: ms,
+                            pcm_base64: base64_encode(&bytes),
+                            is_partial: true,
+                        });
+                    }
+
+                    if let Some(f) = final_chunk {
+                        let ms = (f.len() as f32 / 16000.0 * 1000.0) as u32;
+                        count += 1;
+                        eprintln!("🎤 Final #{} {}ms", count, ms);
+                        let bytes: Vec<u8> = f.iter().flat_map(|f| f.to_le_bytes()).collect();
+                        let _ = app.emit("speech-chunk", SpeechChunk {
+                            duration_ms: ms,
+                            pcm_base64: base64_encode(&bytes),
+                            is_partial: false,
+                        });
+                    }
+                }
+                Err(e) => { eprintln!("❌ read error: {}", e); break; }
+            }
+        }
+    });
+
+    Ok("started".to_string())
 }
 
 fn base64_encode(data: &[u8]) -> String {
@@ -94,3 +144,4 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+// ใส่ก่อน pub fn run()
