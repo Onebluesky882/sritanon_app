@@ -216,49 +216,18 @@ Expected: `"id": "whisper-large-v3"`
 - [x] Rust spawn Swift + stream to frontend
 - [x] VAD (Voice Activity Detection) in Rust
 - [x] Groq Whisper API integration
-- [ ] Interview answer suggestions (groq API)
-      หลังจากได้รับข้อความ แปลงจากเสียง - จัดเก็บ array transcript - ai วิเคราะห์ คำถาม และสร้างคำตอบ พร้อม feedback - มีระบบ manual ด้วยและ auto - manual: ใช้ button ให้ user เลือก - auto: ใช้ ai วิเคราะห์และสร้างคำตอบ
-       SpeechChunk[]  (rolling buffer 30 วิ)
-          ↓
-          render text to box preview  if client want Analyze คำถามชุดนี้ กดคลิก กล่องข้อความ 
-
-        ตัวอย่าง 
-                detect ข้อความจากเสียง 10-30 วิ หรือ เสียงหายเป็นเวลา 2 วินาที 
-
-                ผู้ใช้งาน อ่านแล้ว ใช่คำถาม กด button state 
-
-        ai suggestion 
-                จบ [0]
-
-                         detect ข้อความจากเสียง 10-30 วิ หรือ เสียงหายเป็นเวลา 2 วินาที 
-
-        ผู้ใช้งาน อ่านแล้ว ใช่คำถาม กด button state 
+- [x] Interview answer suggestions (groq API)
+     
                
 
-        ai suggestion 
-          จบ [1]
-                     detect ข้อความจากเสียง 10-30 วิ หรือ เสียงหายเป็นเวลา 2 วินาที 
-
-                ผู้ใช้งาน อ่านแล้ว ใช่คำถาม กด button state 
-
-        ai suggestion 
-                จบ [2]
-
-                         detect ข้อความจากเสียง 10-30 วิ หรือ เสียงหายเป็นเวลา 2 วินาที 
-
-        ผู้ใช้งาน อ่านแล้ว ใช่คำถาม กด button state 
-               
-
-        ai suggestion 
-          จบ [3]
  
- 
- 
- 
-- [ ] Session history & replay
-- [ ] Hotkey to toggle capture
-- [ ] Permission check UI on first launch
+- [] Session history & replay 
+        group question error 
+        เจอบัค ai group error คำตอบยังไม่ชัดเจน  // สร้างคำถามไม่ตรงกับ ที่เลือก 
 
+- [] login & out user 
+- [] webboard post question  // ai answer crud 
+- [] deploy macOs & windows exe
 ---
 
 ## License

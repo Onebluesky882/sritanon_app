@@ -1,5 +1,6 @@
 import { detectQuestion, analyzeInterview } from "./groq.service";
 import { useSpeechStore } from "@/stores/speech-store";
+import { useJobStore } from "@/stores/job-store";
 
 const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY ?? "";
 
@@ -12,8 +13,8 @@ export async function analyzeManual(): Promise<void> {
     clearSelection,
     language,
   } = useSpeechStore.getState();
+  const { jobPosition } = useJobStore.getState();
 
-  // ถ้า user เลือก chunk → ใช้เฉพาะที่เลือก, ถ้าไม่เลือก → ใช้ทั้งหมด
   const buffer =
     selectedChunkIds.size > 0
       ? recentBuffer.filter((t) => selectedChunkIds.has(t.id))
@@ -23,7 +24,12 @@ export async function analyzeManual(): Promise<void> {
 
   setAnalyzing(true);
   try {
-    const result = await analyzeInterview(buffer, GROQ_API_KEY, language);
+    const result = await analyzeInterview(
+      buffer,
+      GROQ_API_KEY,
+      language,        // ← ส่ง language
+      jobPosition      // ← ส่ง jobPosition
+    );
     addAnalysis(result);
     clearSelection();
   } catch (err) {
@@ -32,7 +38,6 @@ export async function analyzeManual(): Promise<void> {
     setAnalyzing(false);
   }
 }
-
 
 export async function autoDetectAndAnalyze(): Promise<void> {
   const {
@@ -44,6 +49,7 @@ export async function autoDetectAndAnalyze(): Promise<void> {
     clearBuffer,
     language,
   } = useSpeechStore.getState();
+  const { jobPosition } = useJobStore.getState();
 
   if (mode !== "auto") return;
   if (isAnalyzing) return;
@@ -51,10 +57,19 @@ export async function autoDetectAndAnalyze(): Promise<void> {
 
   setAnalyzing(true);
   try {
-    const { complete } = await detectQuestion(recentBuffer, GROQ_API_KEY);
+    const { complete } = await detectQuestion(
+      recentBuffer,
+      GROQ_API_KEY,
+      language          // ← ส่ง language
+    );
     if (!complete) return;
 
-    const result = await analyzeInterview(recentBuffer, GROQ_API_KEY, language);
+    const result = await analyzeInterview(
+      recentBuffer,
+      GROQ_API_KEY,
+      language,          // ← ส่ง language
+      jobPosition        // ← ส่ง jobPosition
+    );
     addAnalysis(result);
     clearBuffer();
   } catch (err) {
