@@ -24,10 +24,64 @@ fn greet(name: &str) -> String {
 }
 
 #[tauri::command]
+async fn check_permission() -> bool {
+    let cwd = std::env::current_dir().unwrap();
+    let swift_project = vec![
+        cwd.join("../swift-audio"),
+        cwd.parent().unwrap().join("swift-audio"),
+    ].into_iter().find(|p| p.join("Package.swift").exists());
+
+    let project = match swift_project {
+        Some(p) => p,
+        None => return false,
+    };
+
+    let mut child = match Command::new("swift")
+        .args(["run"])
+        .current_dir(&project)
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .spawn()
+    {
+        Ok(c) => c,
+        Err(_) => return false,
+    };
+
+    let stderr = child.stderr.take().unwrap();
+    let reader = BufReader::new(stderr);
+
+    let mut result = false;
+
+    for line in reader.lines() {
+        if let Ok(line) = line {
+            eprintln!("🔍 check: {}", line);
+            if line.contains("Audio capture started") {
+                result = true;
+                break;
+            }
+            if line.contains("PERMISSION_DENIED") || line.contains("denied") {
+                result = false;
+                break;
+            }
+        }
+    }
+
+    child.kill().ok();
+    result
+}
+
+#[tauri::command]
+async fn open_privacy_settings() {
+    Command::new("open")
+        .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
+        .spawn()
+        .ok();
+}
+
+#[tauri::command]
 async fn start_audio_capture(app: AppHandle) -> Result<String, String> {
     let cwd = std::env::current_dir().unwrap();
 
-    // หา swift-audio project directory
     let swift_project = vec![
         cwd.join("../swift-audio"),
         cwd.parent().unwrap().join("swift-audio"),
@@ -64,6 +118,11 @@ async fn start_audio_capture(app: AppHandle) -> Result<String, String> {
                     let _ = app_clone.emit("app-event", AppEvent {
                         kind: "capture_started".to_string(),
                         message: "Audio capture started".to_string(),
+                    });
+                } else if line.contains("Reconnecting") {
+                    let _ = app_clone.emit("app-event", AppEvent {
+                        kind: "reconnecting".to_string(),
+                        message: "Reconnecting...".to_string(),
                     });
                 }
             }
@@ -140,8 +199,12 @@ fn base64_encode(data: &[u8]) -> String {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet, start_audio_capture])
+        .invoke_handler(tauri::generate_handler![
+            greet,
+            start_audio_capture,
+            check_permission,
+            open_privacy_settings,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
-// ใส่ก่อน pub fn run()
