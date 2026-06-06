@@ -23,7 +23,7 @@ export function LanguageDropdown({
   open,
 }: Props) {
   const current = LANGUAGES.find((l) => l.code === language);
-
+ 
   return (
     <div className="relative">
       {/* BUTTON */}
@@ -54,8 +54,8 @@ export function LanguageDropdown({
                   setOpen(false);
                 }}
                 className={`w-full text-left px-3 py-2 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800 ${language === l.code
-                    ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600"
-                    : ""
+                  ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600"
+                  : ""
                   }`}
               >
                 {l.label}

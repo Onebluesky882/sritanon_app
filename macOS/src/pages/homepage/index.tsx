@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, SetStateAction } from "react";
 import { Mic, Sparkles, Zap, Hand, Globe } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
-import { useSpeechStore } from "@/stores/speech-store";
+import { Language, useSpeechStore } from "@/stores/speech-store";
 import { processSpeechChunk } from "@/services/whisper.service";
 import {
   analyzeManual,
@@ -14,15 +14,10 @@ import type {
 } from "@/types/audio.type";
 import { QuestionCard } from "@/components/homepage/QuestionCard";
 import { AnalysisSection } from "@/components/homepage/AnalysisSection";
+import { LanguageDropdown } from "@/components/homepage/ToggleLang";
 
 const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY ?? "";
 
-const LANGUAGES = [
-  { code: "th", label: "ไทย" },
-  { code: "en", label: "EN" },
-  { code: "zh", label: "中文" },
-  { code: "ja", label: "日本語" },
-];
 
 
 export default function Homepage() {
@@ -130,11 +125,7 @@ export default function Homepage() {
     }
   };
 
-  useEffect(() => {
-
-    console.log("🌍 Language:", language);
-
-  }, [language]);
+  const [openLang, setOpenLang] = useState(false)
 
   return (
     <div className="flex h-screen border border-ring/10 rounded-2xl shadow bg-white dark:bg-zinc-950 font-sans text-zinc-900 dark:text-zinc-100 overflow-hidden">
@@ -169,18 +160,10 @@ export default function Homepage() {
             </div>
 
             {/* Language */}
-            <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg p-1">
-              <Globe size={10} className="ml-2 text-zinc-400" />
-              {LANGUAGES.map((l) => (
-                <button
-                  key={l.code}
-                  onClick={() => setLanguage(l.code as any)}
-                  className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${language === l.code ? "bg-white dark:bg-zinc-700 shadow text-zinc-900 dark:text-white" : "text-zinc-500"}`}
-                >
-                  {l.label}
-                </button>
-              ))}
-            </div>
+
+            <LanguageDropdown language={language as Language} open={openLang} setOpen={
+              setOpenLang} setLanguage={setLanguage} />
+
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
