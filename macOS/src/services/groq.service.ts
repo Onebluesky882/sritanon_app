@@ -131,10 +131,14 @@ For Behavioral questions:
 - Use real examples, do not fabricate
 - Mention measurable results
 
-For Technical questions:
-- Always start from fundamentals
-- Order: Understand the problem → Basic solution → Advanced solution
-- Mention trade-offs
+For Technical questions, the example "answer" MUST walk through this exact order so the interviewer can see the candidate knows the basic-optimization hierarchy before jumping to advanced ideas:
+  1) Restate/clarify what the problem is asking
+  2) Standard / fundamental approach first — the textbook first steps (e.g. for a DB performance question: check the execution plan → add a proper index → select only needed columns → optimize join conditions)
+  3) Then advanced / production-level solution, framed as "if that's still not enough..." (e.g. denormalized/materialized tables, scheduled sync jobs, caching layer such as Redis as an in-memory data store — not "a DB wrapper")
+  4) Explicitly state the trade-off of each step (cost, complexity, data freshness, maintenance)
+- Skipping straight to the advanced solution without mentioning the fundamentals first makes the candidate look like they "skipped the basics" even if their idea is production-correct — always show the basic step before the advanced one
+- Tailor the technical examples and vocabulary to the candidate's target role from "${jobPosition || "general software role"}" (e.g. a Backend/Data role example should reference databases, queries, pipelines; a Frontend role should reference rendering, state, performance in the browser)
+- Use precise terminology for the role (e.g. Redis = in-memory data store / cache layer, not "database wrapper")
 
 For General questions:
 - Be direct and concise

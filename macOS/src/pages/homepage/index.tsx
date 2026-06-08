@@ -22,26 +22,21 @@ export default function Homepage() {
     recentBuffer, mode, setMode,
     language, setLanguage,
     clearBuffer, detectedQuestions, markQuestionAnalyzed,
+    selectedChunkIds, toggleChunk,
   } = useSpeechStore();
 
-  const [selectedTranscriptIds, setSelectedTranscriptIds] = useState<Set<string>>(new Set());
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [liveText, setLiveText] = useState("");
   const [openLang, setOpenLang] = useState(false);
+  const [isCleaning, setIsCleaning] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const selectedTranscripts = useMemo(() => {
-    return [...recentBuffer].reverse().filter((t) => selectedTranscriptIds.has(t.id));
-  }, [recentBuffer, selectedTranscriptIds]);
+    return [...recentBuffer].reverse().filter((t) => selectedChunkIds.has(t.id));
+  }, [recentBuffer, selectedChunkIds]);
 
-  const toggleTranscript = (id: string) => {
-    setSelectedTranscriptIds((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  };
+  const toggleTranscript = (id: string) => toggleChunk(id);
 
   const handleAnalyzeQuestion = async (id: string) => {
     try {
@@ -53,9 +48,21 @@ export default function Homepage() {
   };
 
   const handleAnalyzeSelected = async () => {
-    if (selectedTranscriptIds.size === 0) return;
+    if (selectedChunkIds.size === 0) return;
     await analyzeManual();
-    setSelectedTranscriptIds(new Set());
+  };
+
+  const handleCleanBuildCache = async () => {
+    if (isCleaning) return;
+    setIsCleaning(true);
+    try {
+      const result = await invoke<string>("clean_build_cache");
+      console.log("🧹", result);
+    } catch (e) {
+      console.error("❌ clean_build_cache", e);
+    } finally {
+      setIsCleaning(false);
+    }
   };
 
   useEffect(() => {
@@ -94,6 +101,11 @@ export default function Homepage() {
         console.error("❌", e);
       }
     } else {
+      try {
+        await invoke("stop_audio_capture");
+      } catch (e) {
+        console.error("❌ stop_audio_capture", e);
+      }
       setIsListening(false);
       setCapturing(false);
       setIsProcessing(false);
@@ -198,14 +210,14 @@ export default function Homepage() {
                     {[...recentBuffer].map((t) => (
                       <div
                         key={t.id}
-                        className={`rounded-xl p-3 border transition-all cursor-pointer ${selectedTranscriptIds.has(t.id) ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/30" : "border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800"}`}
+                        className={`rounded-xl p-3 border transition-all cursor-pointer ${selectedChunkIds.has(t.id) ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/30" : "border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800"}`}
                       >
                         <div className="flex justify-between mb-1">
                           <span className="text-[10px] uppercase font-bold text-zinc-400">Speech</span>
                           <span className="text-[10px] text-zinc-400">{new Date(t.timestamp).toLocaleTimeString()}</span>
                         </div>
                         <label className="flex items-center gap-2 text-xs mb-2">
-                          <input type="checkbox" checked={selectedTranscriptIds.has(t.id)} onChange={() => toggleTranscript(t.id)} />
+                          <input type="checkbox" checked={selectedChunkIds.has(t.id)} onChange={() => toggleTranscript(t.id)} />
                           Select for AI group
                         </label>
                         <p className="text-sm">{t.text}</p>
@@ -215,12 +227,12 @@ export default function Homepage() {
                 </div>
               )}
 
-              {selectedTranscriptIds.size > 0 && (
+              {selectedChunkIds.size > 0 && (
                 <div className="rounded-2xl border border-indigo-200 bg-indigo-50 dark:bg-indigo-950/20 p-4">
                   <div className="flex justify-between mb-3">
                     <div>
                       <div className="text-xs font-black uppercase text-indigo-600">Group Analysis</div>
-                      <div className="text-xs text-zinc-500">{selectedTranscriptIds.size} selected</div>
+                      <div className="text-xs text-zinc-500">{selectedChunkIds.size} selected</div>
                     </div>
                     <button onClick={handleAnalyzeSelected} className="px-3 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold">
                       AI Analyze
@@ -303,9 +315,17 @@ export default function Homepage() {
 
         {/* Footer */}
         <footer className="h-10 border border-t flex items-center px-8 text-[10px] text-zinc-500 justify-between bg-zinc-50 dark:bg-zinc-950 shrink-0">
-          <div className="flex gap-4">
+          <div className="flex gap-4 items-center">
             <span className="flex items-center gap-1"><Sparkles size={10} /> Groq Whisper + qwen3-32b</span>
             <span className="flex items-center gap-1"><Mic size={10} /> System Audio</span>
+            <button
+              onClick={handleCleanBuildCache}
+              disabled={isCleaning}
+              title="ลบ build cache ของ src-tauri (cargo clean)"
+              className="text-[10px] text-zinc-400 hover:text-red-500 disabled:opacity-50 transition-colors"
+            >
+              {isCleaning ? "🧹 Cleaning..." : "🧹 Clean build cache"}
+            </button>
           </div>
           <div className="font-mono">{isCapturing ? "LIVE" : "READY"}</div>
         </footer>

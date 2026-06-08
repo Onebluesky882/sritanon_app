@@ -27,6 +27,7 @@ type SpeechStore = {
   markQuestionAnalyzed: (id: string) => void;
   toggleChunk: (id: string) => void;
   clearSelection: () => void;
+  removeFromBuffer: (ids: string[]) => void;
   setCapturing: (v: boolean) => void;
   setAnalyzing: (v: boolean) => void;
   setMode: (m: Mode) => void;
@@ -46,6 +47,8 @@ export const useSpeechStore = create<SpeechStore>((set) => ({
   mode: "manual",
   language: "th",
 
+
+  
   addTranscript: (t) =>
     set((state) => {
       const now = Date.now();
@@ -78,8 +81,16 @@ export const useSpeechStore = create<SpeechStore>((set) => ({
       next.has(id) ? next.delete(id) : next.add(id);
       return { selectedChunkIds: next };
     }),
+    
 
   clearSelection: () => set({ selectedChunkIds: new Set() }),
+
+  removeFromBuffer: (ids) =>
+    set((state) => {
+      const idSet = new Set(ids);
+      return { recentBuffer: state.recentBuffer.filter((t) => !idSet.has(t.id)) };
+    }),
+
   setCapturing: (isCapturing) => set({ isCapturing }),
   setAnalyzing: (isAnalyzing) => set({ isAnalyzing }),
   setMode: (mode) => set({ mode }),

@@ -11,6 +11,7 @@ export async function analyzeManual(): Promise<void> {
     addAnalysis,
     setAnalyzing,
     clearSelection,
+    removeFromBuffer,
     language,
   } = useSpeechStore.getState();
   const { jobPosition } = useJobStore.getState();
@@ -31,6 +32,8 @@ export async function analyzeManual(): Promise<void> {
       jobPosition      // ← ส่ง jobPosition
     );
     addAnalysis(result);
+    // ลบ chunk ที่วิเคราะห์ไปแล้วออกจาก buffer กัน analyze ซ้ำ → คำถามซ้ำ
+    removeFromBuffer(buffer.map((t) => t.id));
     clearSelection();
   } catch (err) {
     console.error("analyzeManual error:", err);

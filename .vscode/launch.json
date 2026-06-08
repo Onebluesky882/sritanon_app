@@ -1,0 +1,24 @@
+{
+  "configurations": [
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:sritanon_app}/macOS/swift-audio",
+      "name": "Debug swift-audio (macOS/swift-audio)",
+      "target": "swift-audio",
+      "configuration": "debug",
+      "preLaunchTask": "swift: Build Debug swift-audio (macOS/swift-audio)"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:sritanon_app}/macOS/swift-audio",
+      "name": "Release swift-audio (macOS/swift-audio)",
+      "target": "swift-audio",
+      "configuration": "release",
+      "preLaunchTask": "swift: Build Release swift-audio (macOS/swift-audio)"
+    }
+  ]
+}

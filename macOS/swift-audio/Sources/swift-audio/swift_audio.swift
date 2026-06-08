@@ -49,8 +49,10 @@ class AudioCapture: NSObject, SCStreamDelegate, SCStreamOutput {
 
         stream = SCStream(filter: filter, configuration: config, delegate: self)
 
+        let audioQueue = DispatchQueue(label: "com.sritanon.swift-audio.capture", qos: .utility)
+
         do {
-            try stream?.addStreamOutput(self, type: .audio, sampleHandlerQueue: .global())
+            try stream?.addStreamOutput(self, type: .audio, sampleHandlerQueue: audioQueue)
             try stream?.startCapture()
             fputs("✅ Audio capture started\n", stderr)
         } catch {
@@ -67,9 +69,12 @@ class AudioCapture: NSObject, SCStreamDelegate, SCStreamOutput {
         var dataPointer: UnsafeMutablePointer<Int8>?
         CMBlockBufferGetDataPointer(blockBuffer, atOffset: 0, lengthAtOffsetOut: nil, totalLengthOut: &length, dataPointerOut: &dataPointer)
 
-        guard let ptr = dataPointer else { return }
-        let data = Data(bytes: ptr, count: length)
-        FileHandle.standardOutput.write(data)
+        guard let ptr = dataPointer, length > 0 else { return }
+        // เขียนตรงจาก buffer pointer ผ่าน POSIX write — ตัด heap copy ของ Data(bytes:) ออก
+        // เพื่อลด CPU ในงาน callback ที่ยิงถี่มาก
+        ptr.withMemoryRebound(to: UInt8.self, capacity: length) { rawPtr in
+            _ = write(FileHandle.standardOutput.fileDescriptor, rawPtr, length)
+        }
     }
 
     // handle stream error — reconnect อัตโนมัติ

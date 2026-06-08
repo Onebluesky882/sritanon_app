@@ -91,6 +91,25 @@ async fn stop_audio_capture(state: State<'_, AudioState>) -> Result<(), String> 
 }
 
 #[tauri::command]
+async fn clean_build_cache() -> Result<String, String> {
+    let cwd = std::env::current_dir().map_err(|e| e.to_string())?;
+
+    let output = Command::new("cargo")
+        .arg("clean")
+        .current_dir(&cwd)
+        .output()
+        .map_err(|e| format!("cargo clean failed: {}", e))?;
+
+    let log = String::from_utf8_lossy(&output.stderr).trim().to_string();
+
+    if output.status.success() {
+        Ok(if log.is_empty() { "Build cache cleaned".to_string() } else { log })
+    } else {
+        Err(if log.is_empty() { "cargo clean failed".to_string() } else { log })
+    }
+}
+
+#[tauri::command]
 async fn start_audio_capture(app: AppHandle, state: State<'_, AudioState>) -> Result<String, String> {
     state.kill();
 
@@ -217,6 +236,7 @@ pub fn run() {
             stop_audio_capture,
             check_permission,
             open_privacy_settings,
+            clean_build_cache,
         ])
         // ← kill Swift เมื่อ window ปิด
         .on_window_event(|window, event| {
