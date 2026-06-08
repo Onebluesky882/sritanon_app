@@ -103,14 +103,14 @@ export default function Homepage() {
     } else {
       try {
         await invoke("stop_audio_capture");
+        setIsListening(false);
+        setCapturing(false);
+        setIsProcessing(false);
+        setLiveText("");
+        console.log("🛑 Stopped");
       } catch (e) {
         console.error("❌ stop_audio_capture", e);
       }
-      setIsListening(false);
-      setCapturing(false);
-      setIsProcessing(false);
-      setLiveText("");
-      console.log("🛑 Stopped");
     }
   };
 

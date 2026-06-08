@@ -12,7 +12,10 @@ export function PermissionGate({ children }: { children: React.ReactNode }) {
       if (event.payload.kind === 'permission_denied') setStatus('denied')
       else if (event.payload.kind === 'capture_started') setStatus('granted')
     })
-    invoke<boolean>('check_permission')
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('timeout')), 8000)
+    )
+    Promise.race([invoke<boolean>('check_permission'), timeout])
       .then((ok) => setStatus(ok ? 'granted' : 'denied'))
       .catch(() => setStatus('denied'))
     return () => { unlisten.then(f => f()) }
@@ -21,7 +24,10 @@ export function PermissionGate({ children }: { children: React.ReactNode }) {
   const openSettings = () => invoke('open_privacy_settings')
   const retry = async () => {
     setStatus('checking')
-    const ok = await invoke<boolean>('check_permission').catch(() => false)
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('timeout')), 8000)
+    )
+    const ok = await Promise.race([invoke<boolean>('check_permission'), timeout]).catch(() => false)
     setStatus(ok ? 'granted' : 'denied')
   }
 
