@@ -22,6 +22,7 @@ export async function analyzeManual(): Promise<void> {
       : recentBuffer;
 
   if (buffer.length === 0) return;
+  if (useSpeechStore.getState().isAnalyzing) return;
 
   setAnalyzing(true);
   try {
